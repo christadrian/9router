@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
-const { machineIdSync } = require("node-machine-id");
+const { execSync } = require("node:child_process");
 
 // Default configuration
 const DEFAULT_CONFIG = {
@@ -39,7 +39,23 @@ function loadRawMachineId() {
     const raw = fs.readFileSync(MACHINE_ID_FILE, "utf8").trim();
     if (raw) return raw;
   } catch {}
-  try { return machineIdSync(); } catch { return ""; }
+  const machineIdCommands = {
+    darwin: "ioreg -rd1 -c IOPlatformExpertDevice | awk -F' = ' '/IOPlatformUUID/ {gsub(/\\\"/, \"\", $2); print tolower($2)}'",
+    linux: "( cat /var/lib/dbus/machine-id /etc/machine-id 2> /dev/null || hostname ) | head -n 1 || :",
+    freebsd: "kenv -q smbios.system.uuid || sysctl -n kern.hostuuid",
+    win32: "REG.exe QUERY HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography /v MachineGuid",
+  };
+  const command = machineIdCommands[process.platform];
+  if (!command) return "";
+  try {
+    const raw = execSync(command, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return process.platform === "win32"
+      ? (raw.split("REG_SZ")[1] || "").replace(/\s+/g, "").toLowerCase()
+      : raw.replace(/\s+/g, "").toLowerCase();
+  } catch { return ""; }
 }
 
 // Random secret shared with server via file → token unpredictable from machineId alone.

@@ -3,6 +3,16 @@ import fs from "node:fs";
 import path from "node:path";
 
 describe("CLI pack runtime deps", () => {
+  it("does not require node-machine-id from CLI startup code", () => {
+    const client = fs.readFileSync(
+      path.resolve(import.meta.dirname, "../../cli/src/cli/api/client.js"),
+      "utf8",
+    );
+
+    expect(client).not.toContain('require("node-machine-id")');
+    expect(client).toContain('require("node:child_process")');
+  });
+
   it("builds before raw npm pack as well as npm run cli:pack", () => {
     const pkg = JSON.parse(
       fs.readFileSync(path.resolve(import.meta.dirname, "../../cli/package.json"), "utf8"),
