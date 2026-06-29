@@ -23,6 +23,53 @@ export function normalizeResponsesInput(input) {
   return null;
 }
 
+export function responsesItemType(item) {
+  return item.type || (item.role ? RESPONSES_ITEM.MESSAGE : null);
+}
+
+export function responsesContentToOpenAI(content) {
+  if (!Array.isArray(content)) return content;
+  return content.map(c => {
+    if (c.type === RESPONSES_ITEM.INPUT_TEXT || c.type === RESPONSES_ITEM.OUTPUT_TEXT) return { type: OPENAI_BLOCK.TEXT, text: c.text };
+    if (c.type === RESPONSES_ITEM.INPUT_IMAGE && c.image_url) {
+      return { type: OPENAI_BLOCK.IMAGE_URL, image_url: { url: c.image_url, detail: c.detail || "auto" } };
+    }
+    return c.type === RESPONSES_ITEM.INPUT_IMAGE ? null : c;
+  }).filter(Boolean);
+}
+
+export function isResponsesToolCall(itemType) {
+  return itemType === RESPONSES_ITEM.FUNCTION_CALL || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL;
+}
+
+export function isResponsesToolOutput(itemType) {
+  return itemType === RESPONSES_ITEM.FUNCTION_CALL_OUTPUT || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL_OUTPUT;
+}
+
+export function responsesToolCallArguments(item, itemType = item.type) {
+  if (itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) {
+    const input = typeof item.input === "string" ? item.input : JSON.stringify(item.input ?? "");
+    return JSON.stringify({ input });
+  }
+  return typeof item.arguments === "string" ? item.arguments : JSON.stringify(item.arguments ?? {});
+}
+
+export function responsesToolOutput(output) {
+  return typeof output === "string" ? output : JSON.stringify(output);
+}
+
+export function responsesToolCallToOpenAI(item, itemType = item.type) {
+  if (!item.name || typeof item.name !== "string" || item.name.trim() === "") return null;
+  return {
+    id: item.call_id,
+    type: OPENAI_BLOCK.FUNCTION,
+    function: {
+      name: item.name,
+      arguments: responsesToolCallArguments(item, itemType)
+    }
+  };
+}
+
 /**
  * Convert OpenAI Responses API format to standard chat completions format
  * Responses API uses: { input: [...], instructions: "..." }
@@ -41,7 +88,6 @@ export function convertResponsesApiFormat(body) {
 
   // Group items by conversation turn
   let currentAssistantMsg = null;
-  let pendingToolCalls = [];
   let pendingToolResults = [];
 
   const inputItems = normalizeResponsesInput(body.input);
@@ -50,7 +96,7 @@ export function convertResponsesApiFormat(body) {
   for (const item of inputItems) {
     // Determine item type - Droid CLI sends role-based items without 'type' field
     // Fallback: if no type but has role property, treat as message
-    const itemType = item.type || (item.role ? RESPONSES_ITEM.MESSAGE : null);
+    const itemType = responsesItemType(item);
 
     if (itemType === RESPONSES_ITEM.MESSAGE) {
       // Flush any pending assistant message with tool calls
@@ -66,21 +112,12 @@ export function convertResponsesApiFormat(body) {
         pendingToolResults = [];
       }
 
-      // Convert content: input_text → text, output_text → text, input_image → image_url
-      const content = Array.isArray(item.content)
-        ? item.content.map(c => {
-          if (c.type === RESPONSES_ITEM.INPUT_TEXT) return { type: OPENAI_BLOCK.TEXT, text: c.text };
-          if (c.type === RESPONSES_ITEM.OUTPUT_TEXT) return { type: OPENAI_BLOCK.TEXT, text: c.text };
-          if (c.type === RESPONSES_ITEM.INPUT_IMAGE) {
-            const url = c.image_url || c.file_id || "";
-            return { type: OPENAI_BLOCK.IMAGE_URL, image_url: { url, detail: c.detail || "auto" } };
-          }
-          return c;
-        })
-        : item.content;
+      const content = responsesContentToOpenAI(item.content);
       result.messages.push({ role: item.role, content });
     }
-    else if (itemType === RESPONSES_ITEM.FUNCTION_CALL || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) {
+    else if (isResponsesToolCall(itemType)) {
+      const toolCall = responsesToolCallToOpenAI(item, itemType);
+      if (!toolCall) continue;
       // Start or append to assistant message with tool_calls
       if (!currentAssistantMsg) {
         currentAssistantMsg = {
@@ -89,20 +126,9 @@ export function convertResponsesApiFormat(body) {
           tool_calls: []
         };
       }
-      // Skip items with empty/missing name — upstream APIs reject nameless tool calls (#444)
-      if (!item.name || typeof item.name !== "string" || item.name.trim() === "") continue;
-      currentAssistantMsg.tool_calls.push({
-        id: item.call_id,
-        type: OPENAI_BLOCK.FUNCTION,
-        function: {
-          name: item.name,
-          arguments: itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL
-            ? JSON.stringify({ input: typeof item.input === "string" ? item.input : "" })
-            : item.arguments
-        }
-      });
+      currentAssistantMsg.tool_calls.push(toolCall);
     }
-    else if (itemType === RESPONSES_ITEM.FUNCTION_CALL_OUTPUT || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL_OUTPUT) {
+    else if (isResponsesToolOutput(itemType)) {
       // Flush assistant message first if exists
       if (currentAssistantMsg) {
         result.messages.push(currentAssistantMsg);
@@ -112,7 +138,7 @@ export function convertResponsesApiFormat(body) {
       pendingToolResults.push({
         role: ROLE.TOOL,
         tool_call_id: item.call_id,
-        content: typeof item.output === "string" ? item.output : JSON.stringify(item.output)
+        content: responsesToolOutput(item.output)
       });
     }
     else if (itemType === RESPONSES_ITEM.REASONING) {

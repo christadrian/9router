@@ -69,25 +69,25 @@ function writeJsonFile(sessionPath, filename, data) {
   }
 }
 
-// Mask sensitive data in headers (DISABLED - keep full token for testing)
+const SENSITIVE_KEY_RE = /authorization|api[-_]?key|cookie|token|secret|password/i;
+
+function maskValue(value) {
+  if (typeof value !== "string") return "[REDACTED]";
+  return value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : "[REDACTED]";
+}
+
+export function redactSensitiveData(value) {
+  if (!value || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(redactSensitiveData);
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [
+    key,
+    SENSITIVE_KEY_RE.test(key) ? maskValue(entry) : redactSensitiveData(entry)
+  ]));
+}
+
 function maskSensitiveHeaders(headers) {
   if (!headers) return {};
-  return { ...headers };
-  
-  // Old masking code (disabled):
-  // const masked = { ...headers };
-  // const sensitiveKeys = ["authorization", "x-api-key", "cookie", "token"];
-  // 
-  // for (const key of Object.keys(masked)) {
-  //   const lowerKey = key.toLowerCase();
-  //   if (sensitiveKeys.some(sk => lowerKey.includes(sk))) {
-  //     const value = masked[key];
-  //     if (value && value.length > 20) {
-  //       masked[key] = value.slice(0, 10) + "..." + value.slice(-5);
-  //     }
-  //   }
-  // }
-  // return masked;
+  return redactSensitiveData(headers);
 }
 
 // No-op logger when logging is disabled
@@ -132,7 +132,7 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
         timestamp: new Date().toISOString(),
         endpoint,
         headers: maskSensitiveHeaders(headers),
-        body
+        body: redactSensitiveData(body)
       });
     },
     
@@ -141,7 +141,7 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
       writeJsonFile(sessionPath, "2_req_source.json", {
         timestamp: new Date().toISOString(),
         headers: maskSensitiveHeaders(headers),
-        body
+        body: redactSensitiveData(body)
       });
     },
     
@@ -149,7 +149,7 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
     logOpenAIRequest(body) {
       writeJsonFile(sessionPath, "3_req_openai.json", {
         timestamp: new Date().toISOString(),
-        body
+        body: redactSensitiveData(body)
       });
     },
     
@@ -159,7 +159,7 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
         timestamp: new Date().toISOString(),
         url,
         headers: maskSensitiveHeaders(headers),
-        body
+        body: redactSensitiveData(body)
       });
     },
     
@@ -170,8 +170,8 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
         timestamp: new Date().toISOString(),
         status,
         statusText,
-        headers: headers ? (typeof headers.entries === "function" ? Object.fromEntries(headers.entries()) : headers) : {},
-        body
+        headers: maskSensitiveHeaders(headers ? (typeof headers.entries === "function" ? Object.fromEntries(headers.entries()) : headers) : {}),
+        body: redactSensitiveData(body)
       });
     },
     
@@ -201,7 +201,7 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
     logConvertedResponse(body) {
       writeJsonFile(sessionPath, "7_res_client.json", {
         timestamp: new Date().toISOString(),
-        body
+        body: redactSensitiveData(body)
       });
     },
     
@@ -222,7 +222,7 @@ export async function createRequestLogger(sourceFormat, targetFormat, model) {
         timestamp: new Date().toISOString(),
         error: error?.message || String(error),
         stack: error?.stack,
-        requestBody
+        requestBody: redactSensitiveData(requestBody)
       });
     }
   };
@@ -250,7 +250,7 @@ export function logError(provider, { error, url, model, requestBody }) {
       url,
       error: error?.message || String(error),
       stack: error?.stack,
-      requestBody
+      requestBody: redactSensitiveData(requestBody)
     };
     
     fs.appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
