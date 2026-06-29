@@ -153,6 +153,7 @@ if (!fs.existsSync(standaloneApp)) {
   process.exit(1);
 }
 copyRecursive(standaloneApp, cliAppDir);
+fs.rmSync(path.join(cliAppDir, "cli"), { recursive: true, force: true });
 
 // Older nested-app layout stores traced node_modules at standalone root.
 const standaloneNodeModules = path.join(standaloneRootToUse, "node_modules");
@@ -203,6 +204,7 @@ function ensureModuleInBundle(pkg) {
   console.log(`✅ Bundled ${pkg}`);
 }
 ensureModuleInBundle("sql.js");
+ensureModuleInBundle("@next/env");
 ensureModuleInBundle("@swc/helpers");
 ensureModuleInBundle("node-machine-id");
 const betterDir = path.join(cliAppDir, "node_modules", "better-sqlite3");
