@@ -181,9 +181,17 @@ function ensureModuleInBundle(pkg) {
     console.log(`✅ ${pkg} already bundled`);
     return;
   }
+  const storeName = pkg.replace("/", "+");
   const candidates = [
     path.join(appDir, "node_modules", pkg),
     path.join(rootDir, "node_modules", pkg),
+    ...[appDir, rootDir].flatMap((dir) =>
+      fs.existsSync(path.join(dir, "node_modules", ".nub"))
+        ? fs.readdirSync(path.join(dir, "node_modules", ".nub"))
+            .filter((name) => name.startsWith(`${storeName}@`))
+            .map((name) => path.join(dir, "node_modules", ".nub", name, "node_modules", pkg))
+        : []
+    ),
   ];
   const src = candidates.find((p) => fs.existsSync(p));
   if (!src) {

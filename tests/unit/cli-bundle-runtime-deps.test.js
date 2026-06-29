@@ -11,5 +11,7 @@ describe("CLI pack runtime deps", () => {
 
     expect(buildScript).toContain('ensureModuleInBundle("@swc/helpers")');
     expect(buildScript).toContain('ensureModuleInBundle("node-machine-id")');
+    expect(buildScript).toContain('pkg.replace("/", "+")');
+    expect(buildScript).toContain('".nub"');
   });
 });
