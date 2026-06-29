@@ -159,6 +159,29 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
       .map(tool => {
         // Already in Chat Completions format: { type: "function", function: { name, ... } }
         if (tool.function) return tool;
+        if (tool.type === "custom") {
+          const name = tool.name;
+          if (!name || typeof name !== "string" || name.trim() === "") return null;
+          return {
+            type: OPENAI_BLOCK.FUNCTION,
+            function: {
+              name,
+              description: String(tool.description || ""),
+              parameters: {
+                type: "object",
+                properties: {
+                  input: {
+                    type: "string",
+                    description: "Raw custom tool input. For apply_patch, put the complete patch text here.",
+                  },
+                },
+                required: ["input"],
+                additionalProperties: false,
+              },
+              strict: tool.strict
+            }
+          };
+        }
         // Responses API function tool: { type: "function", name, description, parameters }
         // Only convert when a non-empty name is present; skip hosted tools without one.
         const name = tool.name;

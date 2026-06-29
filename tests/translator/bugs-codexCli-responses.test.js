@@ -3,6 +3,8 @@ import { describe, it, expect } from "vitest";
 import "./registerAll.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
+import { convertResponsesApiFormat } from "../../open-sse/translator/formats/responsesApi.js";
+import { openaiToOpenAIResponsesResponse } from "../../open-sse/translator/response/openai-responses.js";
 
 const R2O = (body) => translateRequest(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI, "m", body, true, null, null);
 const O2R = (body) => translateRequest(FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES, "m", body, true, null, null);
@@ -42,6 +44,88 @@ describe("Codex CLI Responses → OpenAI", () => {
     const img = Array.isArray(userMsg?.content) ? userMsg.content.find((c) => c.type === "image_url") : null;
     // A bare file_id is not a valid image URL
     expect(img?.image_url?.url === "file-abc").toBe(false);
+  });
+
+  it("custom freeform tools become string-input functions for Chat providers", () => {
+    const out = R2O({
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "patch" }] }],
+      tools: [{
+        type: "custom",
+        name: "apply_patch",
+        description: "freeform patch",
+        format: { type: "grammar", syntax: "lark", definition: "start: /.+/" },
+      }],
+    });
+
+    expect(out.tools[0].function.parameters).toEqual({
+      type: "object",
+      properties: {
+        input: {
+          type: "string",
+          description: "Raw custom tool input. For apply_patch, put the complete patch text here.",
+        },
+      },
+      required: ["input"],
+      additionalProperties: false,
+    });
+  });
+
+  it("custom freeform tools survive the /v1/responses pre-converter", () => {
+    const out = convertResponsesApiFormat({
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "patch" }] }],
+      tools: [{ type: "custom", name: "apply_patch", description: "freeform patch" }],
+    });
+
+    expect(out.tools[0].function.parameters.required).toEqual(["input"]);
+  });
+
+  it("custom tool response unwraps JSON input back to Responses custom input", () => {
+    const state = {
+      seq: 0,
+      responseId: "resp_test",
+      created: 1,
+      started: false,
+      msgTextBuf: {},
+      msgItemAdded: {},
+      msgContentAdded: {},
+      msgItemDone: {},
+      reasoningId: "",
+      reasoningIndex: -1,
+      reasoningBuf: "",
+      reasoningPartAdded: false,
+      reasoningDone: false,
+      inThinking: false,
+      funcArgsBuf: {},
+      funcNames: {},
+      funcCallIds: {},
+      funcArgsDone: {},
+      funcItemDone: {},
+      completedSent: false,
+      customToolNames: new Set(["apply_patch"]),
+    };
+    const chunk = {
+      id: "chatcmpl_1",
+      choices: [{
+        index: 0,
+        delta: {
+          tool_calls: [{
+            index: 0,
+            id: "call_1",
+            type: "function",
+            function: { name: "apply_patch", arguments: JSON.stringify({ input: "*** Begin Patch\n*** End Patch\n" }) },
+          }],
+        },
+        finish_reason: "tool_calls",
+      }],
+    };
+
+    const events = openaiToOpenAIResponsesResponse(chunk, state);
+    const done = events.find(e => e.event === "response.output_item.done");
+    expect(done.data.item).toMatchObject({
+      type: "custom_tool_call",
+      input: "*** Begin Patch\n*** End Patch\n",
+      name: "apply_patch",
+    });
   });
 });
 

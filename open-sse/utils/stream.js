@@ -57,7 +57,8 @@ export function createSSEStream(options = {}) {
   // Per-stream decoder with stream:true to correctly handle multi-byte chars split across chunks
   const decoder = new TextDecoder("utf-8", { fatal: false });
 
-  const state = mode === STREAM_MODE.TRANSLATE ? { ...initState(sourceFormat), provider, toolNameMap, model } : null;
+  const customToolNames = new Set((body?.tools || []).filter(t => t?.type === "custom" && t?.name).map(t => t.name));
+  const state = mode === STREAM_MODE.TRANSLATE ? { ...initState(sourceFormat), provider, toolNameMap, model, customToolNames } : null;
 
   let totalContentLength = 0;
   let accumulatedContent = "";

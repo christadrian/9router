@@ -130,6 +130,30 @@ export function convertResponsesApiFormat(body) {
   }
 
   // Cleanup Responses API specific fields
+  if (body.tools && Array.isArray(body.tools)) {
+    result.tools = body.tools.map(tool => {
+      if (tool?.type !== "custom" || !tool.name) return tool;
+      return {
+        type: OPENAI_BLOCK.FUNCTION,
+        function: {
+          name: tool.name,
+          description: String(tool.description || ""),
+          parameters: {
+            type: "object",
+            properties: {
+              input: {
+                type: "string",
+                description: "Raw custom tool input. For apply_patch, put the complete patch text here.",
+              },
+            },
+            required: ["input"],
+            additionalProperties: false,
+          },
+        },
+      };
+    });
+  }
+
   delete result.input;
   delete result.instructions;
   delete result.include;
