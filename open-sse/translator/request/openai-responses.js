@@ -87,7 +87,7 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
       pendingReasoning = "";
       result.messages.push(msg);
     }
-    else if (itemType === RESPONSES_ITEM.FUNCTION_CALL) {
+    else if (itemType === RESPONSES_ITEM.FUNCTION_CALL || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) {
       // Start or append to assistant message with tool_calls
       if (!currentAssistantMsg) {
         currentAssistantMsg = {
@@ -107,11 +107,13 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
         type: OPENAI_BLOCK.FUNCTION,
         function: {
           name: item.name,
-          arguments: item.arguments
+          arguments: itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL
+            ? JSON.stringify({ input: typeof item.input === "string" ? item.input : "" })
+            : item.arguments
         }
       });
     }
-    else if (itemType === RESPONSES_ITEM.FUNCTION_CALL_OUTPUT) {
+    else if (itemType === RESPONSES_ITEM.FUNCTION_CALL_OUTPUT || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL_OUTPUT) {
       // Flush assistant message first if exists
       if (currentAssistantMsg) {
         result.messages.push(currentAssistantMsg);

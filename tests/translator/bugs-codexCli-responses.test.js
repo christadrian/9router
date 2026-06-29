@@ -127,6 +127,46 @@ describe("Codex CLI Responses → OpenAI", () => {
       name: "apply_patch",
     });
   });
+
+  it("custom tool calls replay into Chat tool history after execution", () => {
+    const out = R2O({
+      input: [
+        {
+          type: "custom_tool_call",
+          call_id: "call_patch",
+          name: "apply_patch",
+          input: "*** Begin Patch\n*** End Patch\n",
+        },
+        {
+          type: "custom_tool_call_output",
+          call_id: "call_patch",
+          output: "Done!",
+        },
+        {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "continue" }],
+        },
+      ],
+    });
+
+    expect(out.messages).toEqual([
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{
+          id: "call_patch",
+          type: "function",
+          function: {
+            name: "apply_patch",
+            arguments: JSON.stringify({ input: "*** Begin Patch\n*** End Patch\n" }),
+          },
+        }],
+      },
+      { role: "tool", tool_call_id: "call_patch", content: "Done!" },
+      { role: "user", content: [{ type: "text", text: "continue" }] },
+    ]);
+  });
 });
 
 describe("OpenAI → Codex Responses (reverse)", () => {
