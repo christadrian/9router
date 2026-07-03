@@ -215,7 +215,24 @@ export function openaiToClaudeResponse(chunk, state) {
         if (toolInfo) {
           // Buffer args instead of streaming — sanitize at finish to fix bad params
           if (!state.toolArgBuffers) state.toolArgBuffers = new Map();
-          state.toolArgBuffers.set(idx, (state.toolArgBuffers.get(idx) || "") + tc.function.arguments);
+          const buffered = (state.toolArgBuffers.get(idx) || "") + tc.function.arguments;
+          state.toolArgBuffers.set(idx, buffered);
+
+          // ponytail: emit early only when JSON is complete; partial streams still flush at finish.
+          try {
+            JSON.parse(buffered);
+            if (!state.emittedToolArgBuffers) state.emittedToolArgBuffers = new Set();
+            if (!state.emittedToolArgBuffers.has(idx)) {
+              state.emittedToolArgBuffers.add(idx);
+              results.push({
+                type: "content_block_delta",
+                index: toolInfo.blockIndex,
+                delta: { type: "input_json_delta", partial_json: sanitizeToolArgs(toolInfo.name, buffered) }
+              });
+            }
+          } catch {
+            // wait for the final chunk
+          }
         }
       }
     }
@@ -229,7 +246,7 @@ export function openaiToClaudeResponse(chunk, state) {
     for (const [idx, toolInfo] of state.toolCalls) {
       // Emit buffered + sanitized args as single delta before stop
       const buffered = state.toolArgBuffers?.get(idx);
-      if (buffered) {
+      if (buffered && !state.emittedToolArgBuffers?.has(idx)) {
         const sanitized = sanitizeToolArgs(toolInfo.name, buffered);
         results.push({
           type: "content_block_delta",

@@ -1,142 +1,27 @@
-# Memory — 9router Codex custom tool bridge
+# Memory — 9router v0.5.18 branch sync
 
-Last updated: 2026-06-30 00:06 Africa/Nairobi
+Last updated: 2026-07-03 19:55 Africa/Nairobi
 
 ## What was built
 
-- Fixed and hardened Codex `apply_patch` support for non-OpenAI models in 9router on branch `christadrian/fix-codex-custom-tool-bridge`.
-- Tool-call bridge files changed:
-  - `/home/christadrian/Projects/9router/open-sse/translator/request/openai-responses.js`
-  - `/home/christadrian/Projects/9router/open-sse/translator/formats/responsesApi.js`
-  - `/home/christadrian/Projects/9router/open-sse/translator/response/openai-responses.js`
-  - `/home/christadrian/Projects/9router/open-sse/utils/stream.js`
-  - `/home/christadrian/Projects/9router/open-sse/translator/schema/blocks.js`
-- Packaging/runtime dependency fixes remain in:
-  - `/home/christadrian/Projects/9router/cli/scripts/build-cli.js`
-  - `/home/christadrian/Projects/9router/cli/package.json`
-  - `/home/christadrian/Projects/9router/cli/src/cli/api/client.js`
-  - `/home/christadrian/Projects/9router/tests/unit/cli-bundle-runtime-deps.test.js`
-- Added/updated regression coverage:
-  - `/home/christadrian/Projects/9router/tests/translator/bugs-codexCli-responses.test.js`
-  - `/home/christadrian/Projects/9router/tests/unit/request-logger-redaction.test.js`
-- Added pack verifier:
-  - `/home/christadrian/Projects/9router/scripts/verify-cli-pack.mjs`
-  - npm script: `npm run cli:verify-pack -- /home/christadrian/Projects/9router-0.5.15.tgz`
-- Request logging now redacts nested secret-like fields while preserving tool payload content.
-- Latest pushed commit: `fbcfcd3 fix(translator): harden custom tool replay`.
-- Earlier pushed commits on this branch:
-  - `b1d3dc8 fix(translator): replay custom tool outputs`
-  - `92c9d24 fix(cli): remove machine-id package from CLI startup`
-  - `7c03a2a fix(cli): make npm pack produce runnable bundle`
-  - `eaef730 fix(cli): resolve nub store packages in bundle`
-  - `8162297 fix(cli): bundle runtime deps for packed installs`
-  - `1ff4aac fix(translator): preserve custom tool bridge`
+Updated `christadrian/fix-codex-custom-tool-bridge` with `master`/upstream v0.5.18 via an in-progress merge, preserving the custom Codex/custom-tool bridge fixes. Patched `open-sse/translator/response/openai-to-claude.js` so complete JSON tool args emit immediately while partial tool streams still buffer until finish.
 
 ## Decisions made
 
-- Responses `custom` freeform tools are represented to Chat providers as normal function tools with schema `{ input: string }`.
-- Provider function-call responses for custom tools are converted back to Responses `custom_tool_call`, with raw `input` unwrapped from JSON `{ input: "..." }`.
-- Follow-up Responses input containing `custom_tool_call` and `custom_tool_call_output` is replayed into Chat tool history so non-OpenAI providers keep tool execution context.
-- Shared helper functions in `formats/responsesApi.js` now own Responses item detection, content conversion, tool call conversion, output conversion, and stringification, reducing drift between request paths.
-- Non-string custom tool input is stringified instead of dropped.
-- `file_id` image inputs are not forwarded as fake image URLs.
-- Build with `npm`; install with `nub install -g`.
-- Correct tarball path is `/home/christadrian/Projects/9router-0.5.15.tgz`, not `/home/christadrian/Projects/9router/cli/9router-0.5.15.tgz`.
-- User requested no PR. Branch was pushed only.
+Kept the branch merge uncommitted until Christadrian verified CLI install/runtime. No PR should be created for this work. Root `package-lock.json` was ignored by git and stale, so it was moved out of the repo instead of tracked or committed; `lock.yaml` remains the authoritative root lockfile.
 
 ## Problems solved
 
-- Original issue: Codex `apply_patch` worked with OpenAI models but failed with non-OpenAI models because Responses custom/freeform tools were not preserved through 9router.
-- GLM hang after tool use: first fix handled model → custom tool call, but follow-up request replay did not translate `custom_tool_call` / `custom_tool_call_output` into Chat history. Fixed.
-- Verified manually by user across providers:
-  - DeepSeek: create/update/delete via `apply_patch` OK.
-  - Kimi K2 Code: `apply_patch` OK.
-  - GLM 5.2: create/delete via `apply_patch` OK after model corrected patch grammar.
-- Packaging crashes fixed: packed install previously missed `@next/env`, `@swc/helpers`, and `node-machine-id`; now app deps are bundled and CLI startup does not require `node-machine-id`.
-- Pack verifier initially failed due a generated `node -e` newline escaping bug. Fixed by writing a temporary `check.cjs` file and escaping `\\n` correctly.
-- Bundled Codex runtime git failed pushing because missing `libcurl-gnutls.so.4`; `/usr/bin/git push` works.
+Nub global install failed with `ERR_NUB_LOCKFILE_AMBIGUOUS` because the repo root had both ignored stale `package-lock.json` and tracked `lock.yaml`. Moving `package-lock.json` to `/tmp/9router-package-lock.json.20260703194922.bak` fixed `nub install -g /home/christadrian/Projects/9router-0.5.18.tgz` from the repo root.
 
 ## Current state
 
-- Branch `christadrian/fix-codex-custom-tool-bridge` is pushed to GitHub at commit `fbcfcd3`.
-- No PR was created.
-- Tests run before commit:
-
-```bash
-npx vitest run tests/unit/request-logger-redaction.test.js tests/unit/cli-bundle-runtime-deps.test.js tests/translator/bugs-codexCli-responses.test.js --reporter=verbose
-npm run cli:verify-pack -- /home/christadrian/Projects/9router-0.5.15.tgz
-git diff --check
-```
-
-- Results:
-  - 3 test files passed.
-  - 13 tests passed.
-  - Pack verifier passed: `pack ok: /home/christadrian/Projects/9router-0.5.15.tgz`.
-  - Diff check clean.
-- `git status --short` after push still showed untracked local files not committed:
-  - `/home/christadrian/Projects/9router/.npmrc`
-  - `/home/christadrian/Projects/9router/cli/pnpm-lock.yaml`
-  - `/home/christadrian/Projects/9router/lock.yaml`
-  - `/home/christadrian/Projects/9router/memory.md`
+Targeted bridge tests pass: `tests/translator/bugs-openai-bridge.test.js`, `tests/translator/bugs-codexCli-responses.test.js`, `tests/unit/codex-tool-normalization.test.js`, `tests/unit/openai-to-claude-response-tools.test.js`, `tests/unit/openai-to-claude.test.js`, `tests/unit/translator-custom-prefix.test.js`. CLI build passed with `npm --prefix cli run build`. Tarball `/home/christadrian/Projects/9router-0.5.18.tgz` installs with Nub and `9router --version` returns `0.5.18`. Full repo test run still has unrelated harness/snapshot failures.
 
 ## Next session starts with
 
-If user wants to install latest pushed fix manually:
-
-```bash
-cd /home/christadrian/Projects/9router
-npm run cli:pack
-npm run cli:verify-pack -- /home/christadrian/Projects/9router-0.5.15.tgz
-nub install -g /home/christadrian/Projects/9router-0.5.15.tgz
-```
-
-Then restart 9router manually.
-
-Optional post-install test prompt:
-
-```text
-Test `apply_patch` with a multi-line paragraph.
-
-Use `apply_patch` only. Do not use shell/write-file tools.
-
-1. Create `.codex_apply_patch_paragraph_test.md` with exactly this content:
-
-9router custom tool bridge test.
-
-This paragraph verifies that apply_patch can carry raw multi-line text through a non-OpenAI model without corrupting whitespace, punctuation, blank lines, or Markdown characters like `backticks`, **bold**, [links](https://example.com), and JSON-ish text: {"ok": true}. The file must be created using the apply_patch custom tool, not shell commands.
-
-End of test.
-
-2. Update the file by appending exactly:
-
-Verified after update.
-
-3. Delete `.codex_apply_patch_paragraph_test.md`.
-
-Use this exact apply_patch format:
-
-*** Begin Patch
-*** Add File: .codex_apply_patch_paragraph_test.md
-+line here
-*** End Patch
-
-Rules:
-- Every added content line must start with `+`.
-- Blank lines must be represented as a single `+`.
-- Do not put raw content lines without `+`.
-- Do not use shell commands.
-- Do not stop after create; update and delete too.
-
-Report only:
-- create: ok/fail
-- update: ok/fail
-- delete: ok/fail
-- errors: exact error text or none
-```
-
-If user says to create a PR, use existing pushed branch `christadrian/fix-codex-custom-tool-bridge`.
+If this branch is already pushed, verify remote branch `origin/christadrian/fix-codex-custom-tool-bridge` contains the merge commit and do not create a PR unless Christadrian asks.
 
 ## Open questions
 
-- Whether user wants a PR opened later.
-- Whether untracked local files should be cleaned, ignored, or committed. Do not touch them without asking.
+None for this branch sync. Full test harness cleanup remains separate work.
