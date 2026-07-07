@@ -15,6 +15,8 @@ import { resolveSessionId } from "../utils/sessionManager.js";
 // SSE error patterns inside 200-OK body that should trigger retry as if 503
 const CODEX_SSE_OVERLOADED_PATTERNS = ["server_is_overloaded", "service_unavailable_error"];
 const CODEX_SSE_PEEK_BYTES = 4096;
+const APPLY_PATCH_INSTRUCTIONS =
+  "For manual file edits, file creation, file deletion, and small targeted changes, use apply_patch. Do not use shell redirection, heredocs, Python/Node file writes, sed -i, perl -pi, tee, or cat > for hand-authored edits. Use shell-based generation only for generated files, formatter output, broad mechanical rewrites, or when apply_patch fails.";
 
 // Server-generated item id prefixes that Codex /responses cannot resolve when store=false
 const SERVER_ID_PATTERN = /^(rs|fc|resp|msg)_/;
@@ -103,6 +105,17 @@ function normalizeCodexTools(body) {
       if (!n || !validNames.has(n)) delete body.tool_choice;
     }
   }
+}
+
+function hasApplyPatchTool(body) {
+  return Array.isArray(body.tools) && body.tools.some((tool) => tool?.type === "custom" && tool.name === "apply_patch");
+}
+
+function ensureApplyPatchInstructions(body) {
+  if (!hasApplyPatchTool(body) || body.instructions?.includes(APPLY_PATCH_INSTRUCTIONS)) return;
+  body.instructions = body.instructions?.trim()
+    ? `${body.instructions.trim()}\n\n${APPLY_PATCH_INSTRUCTIONS}`
+    : APPLY_PATCH_INSTRUCTIONS;
 }
 
 // Resolve prompt-cache session id: client session → assistant-text-hash → workspaceId → connection
@@ -333,6 +346,7 @@ export class CodexExecutor extends BaseExecutor {
     if (!body.instructions || body.instructions.trim() === "") {
       body.instructions = CODEX_DEFAULT_INSTRUCTIONS;
     }
+    ensureApplyPatchInstructions(body);
 
     // Ensure store is false (Codex requirement)
     body.store = false;
