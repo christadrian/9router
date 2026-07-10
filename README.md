@@ -874,6 +874,9 @@ Dashboard → Providers → Connect Codex
 
 Models:
   cx/gpt-5.5
+  cx/gpt-5.6-sol
+  cx/gpt-5.6-terra
+  cx/gpt-5.6-luna
   cx/gpt-5.4
   cx/gpt-5.3-codex
   cx/gpt-5.2-codex
@@ -1255,10 +1258,19 @@ Notes:
 **Codex (`cx/`)** - Plus/Pro:
 
 - `cx/gpt-5.5`
+- `cx/gpt-5.6-sol`
+- `cx/gpt-5.6-terra`
+- `cx/gpt-5.6-luna`
 - `cx/gpt-5.4`
 - `cx/gpt-5.3-codex`
 - `cx/gpt-5.2-codex`
 - `cx/gpt-5.1-codex-max`
+
+**OpenAI (`openai/`)** - API key:
+
+- `openai/gpt-5.6-sol`
+- `openai/gpt-5.6-terra`
+- `openai/gpt-5.6-luna`
 
 **GitHub Copilot (`gh/`)**:
 

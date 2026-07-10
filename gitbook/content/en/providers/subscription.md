@@ -106,6 +106,9 @@ Model: cx/gpt-5.2-codex
 
 | Model ID | Description | Best For |
 |----------|-------------|----------|
+| `cx/gpt-5.6-sol` | GPT 5.6 Sol | High-capability work |
+| `cx/gpt-5.6-terra` | GPT 5.6 Terra | Balanced everyday work |
+| `cx/gpt-5.6-luna` | GPT 5.6 Luna | Fast, cost-efficient work |
 | `cx/gpt-5.2-codex` | GPT 5.2 Codex | Latest coding model |
 | `cx/gpt-5.1-codex-max` | GPT 5.1 Codex Max | Maximum context |
 | `cx/gpt-5.2` | GPT 5.2 | General tasks |
