@@ -1,19 +1,31 @@
-# Memory — GPT-5.6 Sol catalog update
+# Memory — Master sync and Codex Desktop custom endpoint
 
-Last updated: 2026-07-10 03:10 EAT
+Last updated: 2026-07-11 06:15 EAT
 
 ## What was built
 
-Added GPT-5.6 Sol to OpenAI and Codex registries, pricing, docs, tests, eval, and local Codex model catalog.
+Updated local `master` to upstream `v0.5.30`, merged it into `christadrian/fix-codex-custom-tool-bridge` without rebasing, and preserved the custom-tool bridge history from `christadrian/backup-v0.5.18-custom-tool-bridge`.
+
+Added Codex Desktop identity headers and JWT-derived ChatGPT account scoping in `open-sse/executors/codex.js`, synchronized provider defaults in `open-sse/providers/registry/codex.js`, added the regression test in `tests/unit/codex-tool-normalization.test.js`, and added `tests/evals/codex-desktop-headers.eval.mjs`.
+
+## Decisions made
+
+The work branch absorbs upstream through merge commits, not rebases. Custom endpoint requests identify as `Codex Desktop/42.1.0 (X11; Linux; x64)`. Account scope prefers configured workspace/account metadata, then falls back to the access-token `chatgpt_account_id`.
+
+## Problems solved
+
+Resolved upstream merge conflicts in `open-sse/executors/codex.js` and `open-sse/providers/pricing.js` without losing branch-specific pricing, custom-tool handling, or uncommitted header fixes. Verified every backup-branch commit remains in current branch history.
 
 ## Current state
 
-Focused Vitest passed: 8 tests. GPT-5.6 catalog eval passed: 3 OpenAI models, 4 Codex models. No build, commit, push, or restart yet.
+Branch `christadrian/fix-codex-custom-tool-bridge` is clean and synchronized with its remote at commit `92d450d`. Merge commit `b3651b9` contains upstream `master` at `9845a17`.
+
+Focused Vitest passed: 9 tests. Codex Desktop header eval passed. `git diff --check` passed. No rebuild or restart was run because Christadrian will rebuild manually.
 
 ## Next session starts with
 
-Review diff, run `npm run build` and `npm run cli:pack`, then commit and push. Restart 9router and Codex afterward.
+Run `/remember restore`, then rebuild the application manually and verify a real GPT-5.6 Sol custom-endpoint request sends the desktop identity and correct ChatGPT account header.
 
 ## Open questions
 
-Sol pricing was set to the high-capability tier: input $5, output $30, cached $0.50.
+Confirm whether the hardcoded Codex Desktop version should be updated whenever the installed desktop client changes.
