@@ -35,8 +35,10 @@ export default {
     format: "openai-responses",
     forceStream: true,
     headers: {
-      originator: "codex_cli_rs",
-      "User-Agent": "codex_cli_rs/0.136.0",
+      // Match the custom endpoint's Codex Desktop client. Keep in sync with
+      // the supported upstream desktop build.
+      originator: "Codex Desktop",
+      "User-Agent": "Codex Desktop/42.1.0 (X11; Linux; x64)",
     },
     usage: {
       url: "https://chatgpt.com/backend-api/wham/usage",

@@ -23,6 +23,8 @@ const CODEX_SSE_USER_OUTPUT_PATTERNS = [
 ];
 const CODEX_SSE_PEEK_BYTES = 256 * 1024;
 const CODEX_MODEL_CAPACITY_MESSAGE = "Selected model is at capacity. Please try a different model.";
+const CODEX_DESKTOP_ORIGINATOR = "Codex Desktop";
+const CODEX_DESKTOP_USER_AGENT = "Codex Desktop/42.1.0 (X11; Linux; x64)";
 const APPLY_PATCH_INSTRUCTIONS =
   "For manual file edits, file creation, file deletion, and small targeted changes, use apply_patch. Do not use shell redirection, heredocs, Python/Node file writes, sed -i, perl -pi, tee, or cat > for hand-authored edits. Use shell-based generation only for generated files, formatter output, broad mechanical rewrites, or when apply_patch fails.";
 
@@ -119,6 +121,21 @@ function hasApplyPatchTool(body) {
   return Array.isArray(body.tools) && body.tools.some((tool) => tool?.type === "custom" && tool.name === "apply_patch");
 }
 
+function getChatGptAccountId(credentials) {
+  const configured = credentials?.providerSpecificData?.workspaceId
+    || credentials?.providerSpecificData?.accountId
+    || credentials?.providerSpecificData?.chatgptAccountId;
+  if (typeof configured === "string" && configured) return configured;
+
+  try {
+    const payload = String(credentials?.accessToken || "").split(".")[1];
+    const auth = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))["https://api.openai.com/auth"];
+    return typeof auth?.chatgpt_account_id === "string" ? auth.chatgpt_account_id : null;
+  } catch {
+    return null;
+  }
+}
+
 function ensureApplyPatchInstructions(body) {
   if (!hasApplyPatchTool(body) || body.instructions?.includes(APPLY_PATCH_INSTRUCTIONS)) return;
   body.instructions = body.instructions?.trim()
@@ -210,19 +227,12 @@ export class CodexExecutor extends BaseExecutor {
   buildHeaders(credentials, stream = true) {
     const headers = super.buildHeaders(credentials, stream);
     headers["session_id"] = this._currentSessionId || credentials?.connectionId || "default";
-    // Identify client type to Codex backend (matches official codex CLI)
-    if (!headers["originator"]) headers["originator"] = "codex_cli_rs";
-    // Account/workspace binding header — required when multiple Codex accounts
-    // are configured. OAuth import stores ChatGPT account ID as chatgptAccountId;
-    // older/custom rows may use workspaceId/accountId. Prefer explicit workspaceId
-    // but fall back to chatgptAccountId so requests don't cross-bind to the wrong
-    // OpenAI account and surface as token_invalid after adding another account.
-    const accountId =
-      credentials?.providerSpecificData?.workspaceId ||
-      credentials?.providerSpecificData?.chatgptAccountId ||
-      credentials?.providerSpecificData?.accountId;
-    if (typeof accountId === "string" && accountId && !headers["ChatGPT-Account-ID"]) {
-      headers["ChatGPT-Account-ID"] = accountId;
+    // Match the desktop client that owns this custom endpoint.
+    headers["originator"] = CODEX_DESKTOP_ORIGINATOR;
+    headers["User-Agent"] = CODEX_DESKTOP_USER_AGENT;
+    const accountId = getChatGptAccountId(credentials);
+    if (accountId) {
+      headers["ChatGPT-Account-Id"] = accountId;
     }
     return headers;
   }

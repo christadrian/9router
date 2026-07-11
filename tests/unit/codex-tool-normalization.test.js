@@ -24,6 +24,24 @@ function normalizeTools(tools) {
 }
 
 describe("CodexExecutor tool normalization", () => {
+  it("uses the desktop client identity and account scope for custom-endpoint requests", () => {
+    const accountId = "acct_sol_enabled";
+    const token = `header.${Buffer.from(JSON.stringify({
+      "https://api.openai.com/auth": { chatgpt_account_id: accountId },
+    })).toString("base64url")}.signature`;
+    const executor = new CodexExecutor();
+    executor.transformRequest("gpt-5.6-sol", {
+      model: "gpt-5.6-sol",
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "probe" }] }],
+    }, true, { accessToken: token, connectionId: "sol-custom-endpoint", providerSpecificData: {} });
+
+    expect(executor.buildHeaders({ accessToken: token, providerSpecificData: {} })).toMatchObject({
+      "originator": "Codex Desktop",
+      "User-Agent": "Codex Desktop/42.1.0 (X11; Linux; x64)",
+      "ChatGPT-Account-Id": accountId,
+    });
+  });
+
   it("tells Codex to use apply_patch for manual edits by default", () => {
     expect(CODEX_DEFAULT_INSTRUCTIONS).toContain("For manual file edits");
   });
