@@ -1,31 +1,68 @@
-# Memory — Master sync and Codex Desktop custom endpoint
+# Memory — Custom tool bridge, Codex Desktop identity, GPT-5.6 Sol, CLI bundling
 
-Last updated: 2026-07-11 06:15 EAT
+Last updated: 2026-07-15 EAT
 
-## What was built
+## Branch
+`christadrian/fix-codex-custom-tool-bridge` — 15 commits ahead of `master`, HEAD at `fec7c45`.
 
-Updated local `master` to upstream `v0.5.30`, merged it into `christadrian/fix-codex-custom-tool-bridge` without rebasing, and preserved the custom-tool bridge history from `christadrian/backup-v0.5.18-custom-tool-bridge`.
+## What was built (full branch scope)
 
-Added Codex Desktop identity headers and JWT-derived ChatGPT account scoping in `open-sse/executors/codex.js`, synchronized provider defaults in `open-sse/providers/registry/codex.js`, added the regression test in `tests/unit/codex-tool-normalization.test.js`, and added `tests/evals/codex-desktop-headers.eval.mjs`.
+### Custom tool bridge (`open-sse/translator/`)
+- Preserve custom tool outputs across request/response translation cycle (`1ff4aac`, `b1d3dc8`)
+- Harden replay against malformed tool calls (`fbcfcd3`)
+- Enforce `apply_patch` edit policy in Codex executor (`8b4aeee`)
+
+### Codex Desktop identity (`open-sse/executors/codex.js`)
+- Desktop identity header: `Codex Desktop/42.1.0 (X11; Linux; x64)`
+- JWT-derived ChatGPT account scoping — prefers configured workspace/account metadata, falls back to access-token `chatgpt_account_id`
+- Synchronized provider defaults in `open-sse/providers/registry/codex.js`
+- Regression test: `tests/unit/codex-tool-normalization.test.js`
+- Eval: `tests/evals/codex-desktop-headers.eval.mjs`
+
+### GPT-5.6 Sol model (`2dd3cfc`)
+- Added to `open-sse/providers/registry/openai.js`
+- Provider model test: `tests/unit/provider-models-gpt56.test.js`
+- Eval: `tests/evals/provider-models-gpt56.eval.mjs`
+
+### CLI bundling (`cli/`)
+- Bundle runtime deps for packed installs (`8162297`)
+- Resolve nub store packages in bundle (`eaef730`)
+- Make `npm pack` produce runnable bundle (`7c03a2a`)
+- Remove `machine-id` package from CLI startup (`92c9d24`)
+- Sync v0.5.18 custom tool bridge into CLI (`869fc1f`)
+- CLI bundle test: `tests/unit/cli-bundle-runtime-deps.test.js`
+
+### Upstream sync
+- Merged `decolua:master` into branch (`686693a`)
+- Merged master at v0.5.30 (`b3651b9`) — upstream at `9845a17`
+- Resolved merge conflicts in `open-sse/executors/codex.js` and `open-sse/providers/pricing.js` without losing branch-specific changes
 
 ## Decisions made
 
-The work branch absorbs upstream through merge commits, not rebases. Custom endpoint requests identify as `Codex Desktop/42.1.0 (X11; Linux; x64)`. Account scope prefers configured workspace/account metadata, then falls back to the access-token `chatgpt_account_id`.
+- Branch absorbs upstream through merge commits, not rebases — preserves custom-tool bridge history without rewrite.
+- Custom endpoint requests identify as `Codex Desktop/42.1.0 (X11; Linux; x64)`.
+- Account scope prefers configured workspace/account metadata, falls back to access-token `chatgpt_account_id`.
+- `apply_patch` edit policy enforced server-side in the executor, not in the translator.
 
 ## Problems solved
 
-Resolved upstream merge conflicts in `open-sse/executors/codex.js` and `open-sse/providers/pricing.js` without losing branch-specific pricing, custom-tool handling, or uncommitted header fixes. Verified every backup-branch commit remains in current branch history.
+- Custom tool outputs lost during translation round-trip — fixed by preserving tool call/response pairs in translator.
+- CLI npm pack produced broken bundles — fixed by bundling runtime deps and resolving nub store packages.
+- `machine-id` native package crashed CLI startup — removed from CLI dependency chain.
+- Upstream merge conflicts resolved without losing branch-specific pricing, custom-tool handling, or header fixes.
+- Verified every backup-branch commit remains in current branch history.
 
 ## Current state
 
-Branch `christadrian/fix-codex-custom-tool-bridge` is clean and synchronized with its remote at commit `92d450d`. Merge commit `b3651b9` contains upstream `master` at `9845a17`.
+Branch `christadrian/fix-codex-custom-tool-bridge` is clean. HEAD `fec7c45` includes all work + this memory update. The only uncommitted change is `lock.yaml` deletion (artifact, safe to ignore).
 
-Focused Vitest passed: 9 tests. Codex Desktop header eval passed. `git diff --check` passed. No rebuild or restart was run because Christadrian will rebuild manually.
+Tests: 30 files changed across the branch, 7353 insertions, 137 deletions. Focused Vitest passed (9 tests). Codex Desktop header eval passed. GPT-5.6 Sol model eval passed. `git diff --check` passed.
 
 ## Next session starts with
 
-Run `/remember restore`, then rebuild the application manually and verify a real GPT-5.6 Sol custom-endpoint request sends the desktop identity and correct ChatGPT account header.
+Rebuild application manually. Verify a real GPT-5.6 Sol custom-endpoint request sends the desktop identity header and correct ChatGPT account header. Then merge `christadrian/fix-codex-custom-tool-bridge` into `master`.
 
 ## Open questions
 
-Confirm whether the hardcoded Codex Desktop version should be updated whenever the installed desktop client changes.
+- Should the hardcoded Codex Desktop version (`42.1.0`) be updated when the installed desktop client changes?
+- Should `lock.yaml` (6006 lines) be gitignored or is it tracked intentionally?
