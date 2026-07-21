@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { PROVIDER_MODELS, getModelTargetFormat } from "../../open-sse/config/providerModels.js";
 import { OpenCodeGoExecutor } from "../../open-sse/executors/opencode-go.js";
+import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
 
 const CHAT_MODELS = [
   "glm-5.2",
   "glm-5.1",
+  "kimi-k3",
   // OpenCode Go docs' endpoint table currently says kimi-k2.7, but its
   // config example and the live API use kimi-k2.7-code.
   "kimi-k2.7-code",
@@ -41,6 +43,14 @@ describe("OpenCode Go official model catalog", () => {
     for (const model of CHAT_MODELS) {
       expect(getModelTargetFormat("opencode-go", model)).toBeNull();
     }
+  });
+
+  it("exposes Kimi K3 with vision and reasoning", () => {
+    const model = PROVIDER_MODELS["opencode-go"].find(({ id }) => id === "kimi-k3");
+    const capabilities = getCapabilitiesForModel("opencode-go", model.id);
+
+    expect(model).toMatchObject({ id: "kimi-k3", name: "Kimi K3" });
+    expect(capabilities).toMatchObject({ vision: true, reasoning: true });
   });
 });
 

@@ -25,6 +25,7 @@ export default {
   models: [
     { id: "glm-5.2", name: "GLM 5.2" },
     { id: "glm-5.1", name: "GLM 5.1" },
+    { id: "kimi-k3", name: "Kimi K3" },
     { id: "kimi-k2.7-code", name: "Kimi K2.7 Code" },
     { id: "kimi-k2.6", name: "Kimi K2.6" },
     { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
